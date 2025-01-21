@@ -1,1 +1,1 @@
-# .NET-Shift-Manager-MVC
+# .NET-Shift-Manager

@@ -1,0 +1,35 @@
+﻿@using ShiftManager.Models.ViewModels
+@model EmployeeVM
+
+
+<h1>Edit Employee</h1>
+
+<div class="custom-container">
+    <form method="post">
+        <div asp-validation-summary="All" class="text-danger"></div>
+        <div class="row">
+            <label>Full Name</label>
+            <input asp-for="Name" type="text" class="form-control form-control-lg gy-2"/>
+        </div>
+        <div class="row">
+            <label>Date Of Birth</label>
+            <input asp-for="DOB" type="date" class="form-control form-control-lg gy-2"/>
+        </div>
+
+        <div class="d-flex justify-content-center row">
+            <button class="btn btn-primary btn-lg gy-2" type="submit">Update</button>
+        </div>
+    </form>
+    <form>
+        <div class="d-flex justify-content-center row">
+            <button asp-controller="Employee" asp-action="Index" class="btn btn-primary btn-lg gy-2">Back</button>
+        </div>
+    </form>
+</div>
+
+
+@section Scripts{
+    @{
+        <partial name="_ValidationScriptsPartial" />
+    }
+}
