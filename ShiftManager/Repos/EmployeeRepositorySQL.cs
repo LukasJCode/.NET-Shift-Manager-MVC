@@ -15,12 +15,12 @@ namespace ShiftManager.Repos
         }
         public async Task AddAsync(EmployeeVM employee)
         {
-            const string query = "INSERT INTO employee (name, dob) VALUES (@Name, @DOB)";
+            const string query = "INSERT INTO employee (name, dob) VALUES (@name, @dob)";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Name", employee.Name);
-            command.Parameters.AddWithValue("@DOB", new DateTime(employee.DOB.Year, employee.DOB.Month, employee.DOB.Day));
+            command.Parameters.AddWithValue("@name", employee.Name);
+            command.Parameters.AddWithValue("@dob", employee.DOB);
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();

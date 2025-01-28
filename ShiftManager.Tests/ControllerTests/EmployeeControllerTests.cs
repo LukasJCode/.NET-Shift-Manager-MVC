@@ -1,15 +1,11 @@
 ﻿using ShiftManager.Services.Interfaces;
 using FakeItEasy;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ShiftManager.Models;
 using ShiftManager.Controllers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using ShiftManager.Models.ViewModels;
+using Microsoft.Extensions.Logging;
 
 namespace ShiftManager.Tests.ControllerTests
 {
@@ -17,13 +13,14 @@ namespace ShiftManager.Tests.ControllerTests
     {
         private IEmployeeRepository _employeeRepository;
         private EmployeeController _employeeController;
+        private ILogger<EmployeeController> _logger;
         public EmployeeControllerTests()
         {
             //Dependencies
             _employeeRepository = A.Fake<IEmployeeRepository>();
 
             //SUT
-            _employeeController = new EmployeeController(_employeeRepository);
+            _employeeController = new EmployeeController(_employeeRepository, _logger);
         }
 
         [Fact]

@@ -1,6 +1,8 @@
-﻿using FakeItEasy;
+﻿using Castle.Core.Logging;
+using FakeItEasy;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using ShiftManager.Controllers;
 using ShiftManager.Models;
 using ShiftManager.Models.ViewModels;
@@ -20,6 +22,7 @@ namespace ShiftManager.Tests.ControllerTests
         private IEmployeeRepository _employeeRepository;
         private IJobRepository _jobRepository;
         private ShiftController _shiftController;
+        private ILogger<ShiftController> _logger;
 
         public ShiftControllerTests()
         {
@@ -29,7 +32,7 @@ namespace ShiftManager.Tests.ControllerTests
             _jobRepository = A.Fake<IJobRepository>();
 
             //SUT
-            _shiftController = new ShiftController(_shiftRepository, _employeeRepository, _jobRepository);
+            _shiftController = new ShiftController(_shiftRepository, _employeeRepository, _jobRepository, _logger);
         }
 
         [Fact]

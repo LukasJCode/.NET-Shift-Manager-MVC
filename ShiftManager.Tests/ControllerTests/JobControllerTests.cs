@@ -1,6 +1,7 @@
 ﻿using FakeItEasy;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using ShiftManager.Controllers;
 using ShiftManager.Models;
 using ShiftManager.Models.ViewModels;
@@ -14,13 +15,14 @@ namespace ShiftManager.Tests.ControllerTests
     {
         private IJobRepository _jobRepository;
         private JobController _jobController;
+        private ILogger<JobController> _logger;
         public JobControllerTests()
         {
             //Dependencies
             _jobRepository = A.Fake<IJobRepository>();
 
             //SUT
-            _jobController = new JobController(_jobRepository);
+            _jobController = new JobController(_jobRepository, _logger);
         }
 
         [Fact]

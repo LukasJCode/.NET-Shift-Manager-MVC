@@ -6,7 +6,6 @@ namespace ShiftManager.Utilities
     {
         public static int CalculateEmployeeAge(DateTime DOB)
         {
-            //Getting employees date of birth
             var birthday = DOB;
             var today = DateTime.Today;
             var age = today.Year - birthday.Year;
