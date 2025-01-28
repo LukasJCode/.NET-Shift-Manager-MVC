@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using ShiftManager.Models;
 using ShiftManager.Models.ViewModels;
 using ShiftManager.Services.Interfaces;
 using ShiftManager.Utilities;
@@ -12,99 +11,145 @@ namespace ShiftManager.Controllers
         private readonly IShiftRepository _shiftRepository;
         private readonly IEmployeeRepository _employeeRepository;
         private readonly IJobRepository _jobRepository;
+        private readonly ILogger<ShiftController> _logger;
 
-        public ShiftController(IShiftRepository shiftRepository, IEmployeeRepository employeeRepository, IJobRepository jobRepository)
+        public ShiftController(
+            IShiftRepository shiftRepository, 
+            IEmployeeRepository employeeRepository, 
+            IJobRepository jobRepository,
+            ILogger<ShiftController> logger
+            )
         {
             _shiftRepository = shiftRepository;
             _employeeRepository = employeeRepository;
             _jobRepository = jobRepository;
+            _logger = logger;
         }
 
-        // Display all shifts
         public async Task<IActionResult> Index()
         {
-            var data = await _shiftRepository.GetAllShiftsAsync();
-            return View(data);
+            try
+            {
+                var data = await _shiftRepository.GetAllShiftsAsync();
+                return View(data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching shifts.");
+                return View("GenericError");
+            }
         }
 
-        //Display create shift form
+        [HttpGet]
         public async Task<IActionResult> Create()
         {
-            //Populating employees and jobs in the view
-            await SetDropdownsForView();
+            try
+            {
+                //Populating employees and jobs in the view
+                await SetDropdownsForView();
 
-            return View();
+                return View();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while creating shift.");
+                return View("GenericError");
+            }
         }
 
-        //Create a new shift
         [HttpPost]
         public async Task<IActionResult> Create(ShiftVM shift)
         {
-            //Validating employees age
-            if(!await ValidateEmployeeAge(shift))
+            try
             {
-                return await RetryCreateView(shift);
+                //Validating employees age for jobs
+                if (!await ValidateEmployeeAge(shift))
+                {
+                    return await RetryCreateView(shift);
+                }
+
+                //Making sure shift doesnt start after it has ended
+                if (shift.ShiftStart > shift.ShiftEnd)
+                {
+                    ModelState.AddModelError("Shift creation error", "Shift cannot start after shift has ended");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return await RetryCreateView(shift);
+                }
+
+                await _shiftRepository.AddAsync(shift);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding shift.");
+                return View("GenericError");
             }
 
-            //Making sure shift doesnt start after it has ended
-            if (shift.ShiftStart > shift.ShiftEnd)
-            {
-                ModelState.AddModelError("Shift creation error", "Shift cannot start after shift has ended");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return await RetryCreateView(shift);
-            }
-
-            await _shiftRepository.AddAsync(shift);
             return RedirectToAction(nameof(Index));
         }
 
-        //Display edit shift form
+        [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
-            var shiftDetails = await _shiftRepository.GetShiftByIdAsync(id);
-            if (shiftDetails == null)
+            try
             {
-                return View("NotFound");
+                var shiftDetails = await _shiftRepository.GetShiftByIdAsync(id);
+                if (shiftDetails == null)
+                {
+                    return View("NotFound");
+                }
+
+                var shiftVM = new ShiftVM()
+                {
+                    ShiftStart = shiftDetails.ShiftStart,
+                    ShiftEnd = shiftDetails.ShiftEnd,
+                    EmployeeId = shiftDetails.EmployeeId,
+                    JobIds = shiftDetails.Jobs_Shifts.Select(x => x.JobId).ToList()
+                };
+                //Populating employees and jobs in the view
+                await SetDropdownsForView();
+
+                return View(shiftVM);
             }
-
-            var shiftVM = new ShiftVM()
+            catch (Exception ex)
             {
-                ShiftStart = shiftDetails.ShiftStart,
-                ShiftEnd = shiftDetails.ShiftEnd,
-                EmployeeId = shiftDetails.EmployeeId,
-                JobIds = shiftDetails.Jobs_Shifts.Select(x => x.JobId).ToList()
-            };
-
-            //Populating employees and jobs in the view
-            await SetDropdownsForView();
-
-            return View(shiftVM);
+                _logger.LogError(ex, "An error occurred while updating shift.");
+                return View("GenericError");
+            }
         }
 
         //Update a shift
         [HttpPost]
         public async Task<IActionResult> Edit(ShiftVM shift)
         {
-            if(!await ValidateEmployeeAge(shift))
+            try
             {
-                return await RetryCreateView(shift);
+                if (!await ValidateEmployeeAge(shift))
+                {
+                    return await RetryCreateView(shift);
+                }
+
+                //Making sure shift doesnt start after it has ended
+                if (shift.ShiftStart > shift.ShiftEnd)
+                {
+                    ModelState.AddModelError("Shift creation error", "Shift cannot start after shift has ended");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return await RetryCreateView(shift);
+                }
+
+                await _shiftRepository.UpdateAsync(shift);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating shift.");
+                return View("GenericError");
             }
 
-            //Making sure shift doesnt start after it has ended
-            if (shift.ShiftStart > shift.ShiftEnd)
-            {
-                ModelState.AddModelError("Shift creation error", "Shift cannot start after shift has ended");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return await RetryCreateView(shift);
-            }
-
-            await _shiftRepository.UpdateAsync(shift);
             return RedirectToAction(nameof(Index));
         }
 
@@ -112,14 +157,23 @@ namespace ShiftManager.Controllers
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
-            var shift = await _shiftRepository.GetShiftByIdAsync(id);
-            if (shift == null)
+            try
             {
-                return View("NotFound");
+                var shift = await _shiftRepository.GetShiftByIdAsync(id);
+                if (shift == null)
+                {
+                    return View("NotFound");
+                }
+
+                await _shiftRepository.DeleteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deleting shift.");
+                return View("GenericError");
             }
 
-            await _shiftRepository.DeleteAsync(id);
-            return RedirectToAction("Index");
+            return RedirectToAction(nameof(Index));
         }
 
         // Helper method to set dropdowns for the view

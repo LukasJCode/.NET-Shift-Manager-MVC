@@ -15,7 +15,7 @@ namespace ShiftManager.Repos
         }
         public async Task AddAsync(EmployeeVM employee)
         {
-            const string query = "INSERT INTO Employees (Name, DOB) VALUES (@Name, @DOB)";
+            const string query = "INSERT INTO employee (name, dob) VALUES (@Name, @DOB)";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
@@ -26,16 +26,16 @@ namespace ShiftManager.Repos
             await command.ExecuteNonQueryAsync();
         }
 
-        public async Task DeleteAsync(int? Id)
+        public async Task DeleteAsync(int? id)
         {
-            if (Id == null)
-                throw new ArgumentNullException(nameof(Id));
+            if (id == null)
+                throw new ArgumentNullException(nameof(id));
 
-            const string query = "DELETE FROM Employees WHERE Id = @Id";
+            const string query = "DELETE FROM Employee WHERE emp_id = @id";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Id", Id);
+            command.Parameters.AddWithValue("@id", id);
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
@@ -43,7 +43,7 @@ namespace ShiftManager.Repos
 
         public async Task<IEnumerable<Employee>> GetAllEmployeesAsync()
         {
-            const string query = "SELECT Id, Name, DOB FROM Employees";
+            const string query = "SELECT emp_id, name, dob FROM Employee";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
@@ -55,25 +55,25 @@ namespace ShiftManager.Repos
             {
                 var emp = new Employee
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Name = reader.GetString(reader.GetOrdinal("Name")),
-                    DOB = reader.GetDateTime(reader.GetOrdinal("DOB"))
+                    Id = reader.GetInt32(reader.GetOrdinal("emp_id")),
+                    Name = reader.GetString(reader.GetOrdinal("name")),
+                    DOB = reader.GetDateTime(reader.GetOrdinal("dob"))
                 };
                 employees.Add(emp);
             }
             return employees;
         }
 
-        public async Task<Employee> GetEmployeeByIdAsync(int? Id)
+        public async Task<Employee> GetEmployeeByIdAsync(int? id)
         {
-            if (Id == null)
-                throw new ArgumentNullException(nameof(Id));
+            if (id == null)
+                throw new ArgumentNullException(nameof(id));
 
-            const string query = "SELECT Id, Name, DOB FROM Employees WHERE Id = @Id";
+            const string query = "SELECT emp_id, name, dob FROM Employee WHERE emp_id = @id";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Id", Id);
+            command.Parameters.AddWithValue("@id", id);
 
             await connection.OpenAsync();
             using var reader = await command.ExecuteReaderAsync();
@@ -82,9 +82,9 @@ namespace ShiftManager.Repos
             {
                 return new Employee
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Name = reader.GetString(reader.GetOrdinal("Name")),
-                    DOB = reader.GetDateTime(reader.GetOrdinal("DOB"))
+                    Id = reader.GetInt32(reader.GetOrdinal("emp_id")),
+                    Name = reader.GetString(reader.GetOrdinal("name")),
+                    DOB = reader.GetDateTime(reader.GetOrdinal("dob"))
                 };
             }
             else
@@ -95,13 +95,13 @@ namespace ShiftManager.Repos
 
         public async Task UpdateAsync(EmployeeVM updatedEmployee)
         {
-            const string query = "UPDATE Employees SET Name = @Name, DOB = @DOB WHERE Id = @Id";
+            const string query = "UPDATE Employee SET name = @name, dob = @dob WHERE emp_id = @id";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Id", updatedEmployee.Id);
-            command.Parameters.AddWithValue("@Name", updatedEmployee.Name);
-            command.Parameters.AddWithValue("@DOB", updatedEmployee.DOB);
+            command.Parameters.AddWithValue("@id", updatedEmployee.Id);
+            command.Parameters.AddWithValue("@name", updatedEmployee.Name);
+            command.Parameters.AddWithValue("@dob", updatedEmployee.DOB);
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();

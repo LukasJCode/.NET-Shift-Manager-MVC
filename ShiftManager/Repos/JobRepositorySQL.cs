@@ -9,6 +9,7 @@ namespace ShiftManager.Repos
     public class JobRepositorySQL : IJobRepository
     {
         private readonly string _connectionString;
+
         public JobRepositorySQL() 
         {
             _connectionString = Handlers.GetConnectionString();
@@ -16,24 +17,24 @@ namespace ShiftManager.Repos
 
         public async Task AddAsync(JobVM job)
         {
-            const string query = "INSERT INTO Jobs (Name, RequiredAge) VALUES (@Name, @RequiredAge)";
+            const string query = "INSERT INTO Job (name, required_age) VALUES (@name, @required_age)";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Name", job.Name);
-            command.Parameters.AddWithValue("@RequiredAge", job.RequiredAge);
+            command.Parameters.AddWithValue("@name", job.Name);
+            command.Parameters.AddWithValue("@required_age", job.RequiredAge);
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
         }
 
-        public async Task DeleteAsync(int Id)
+        public async Task DeleteAsync(int id)
         {
-            const string query = "DELETE FROM Jobs WHERE Id = @Id";
+            const string query = "DELETE FROM Job WHERE job_id = @job_id";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Id", Id);
+            command.Parameters.AddWithValue("@job_id", id);
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();
@@ -41,7 +42,7 @@ namespace ShiftManager.Repos
 
         public async Task<IEnumerable<Job>> GetAllJobsAsync()
         {
-            const string query = "SELECT Id, Name, RequiredAge FROM Jobs";
+            const string query = "SELECT job_id, name, required_age FROM Job";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
@@ -53,25 +54,25 @@ namespace ShiftManager.Repos
             {
                 var job = new Job
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Name = reader.GetString(reader.GetOrdinal("Name")),
-                    RequiredAge = reader.GetInt32(reader.GetOrdinal("RequiredAge"))
+                    Id = reader.GetInt32(reader.GetOrdinal("job_id")),
+                    Name = reader.GetString(reader.GetOrdinal("name")),
+                    RequiredAge = reader.GetInt32(reader.GetOrdinal("required_age"))
                 };
                 jobs.Add(job);
             }
             return jobs;
         }
 
-        public async Task<Job> GetJobByIdAsync(int? Id)
+        public async Task<Job> GetJobByIdAsync(int? id)
         {
-            if (Id == null)
-                throw new ArgumentNullException(nameof(Id));
+            if (id == null)
+                throw new ArgumentNullException(nameof(id));
 
-            const string query = "SELECT Id, Name, RequiredAge FROM Jobs WHERE Id = @Id";
+            const string query = "SELECT job_id, name, required_age FROM Job WHERE job_id = @job_id";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Id", Id);
+            command.Parameters.AddWithValue("@job_id", id);
 
             await connection.OpenAsync();
             using var reader = await command.ExecuteReaderAsync();
@@ -80,26 +81,26 @@ namespace ShiftManager.Repos
             {
                 return new Job
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Name = reader.GetString(reader.GetOrdinal("Name")),
-                    RequiredAge = reader.GetInt32(reader.GetOrdinal("RequiredAge"))
+                    Id = reader.GetInt32(reader.GetOrdinal("job_id")),
+                    Name = reader.GetString(reader.GetOrdinal("name")),
+                    RequiredAge = reader.GetInt32(reader.GetOrdinal("required_age"))
                 };
             }
             else
             {
-                return null; // Or throw a custom exception indicating the job was not found
+                return null;
             }
         }
 
         public async Task UpdateAsync(JobVM updatedJob)
         {
-            const string query = "UPDATE Jobs SET Name = @Name, RequiredAge = @RequiredAge WHERE Id = @Id";
+            const string query = "UPDATE Job SET name = @name, required_age = @required_age WHERE job_id = @job_id";
             using var connection = new SqlConnection(_connectionString);
             using var command = new SqlCommand(query, connection);
 
-            command.Parameters.AddWithValue("@Id", updatedJob.Id);
-            command.Parameters.AddWithValue("@Name", updatedJob.Name);
-            command.Parameters.AddWithValue("@RequiredAge", updatedJob.RequiredAge);
+            command.Parameters.AddWithValue("@job_id", updatedJob.Id);
+            command.Parameters.AddWithValue("@name", updatedJob.Name);
+            command.Parameters.AddWithValue("@required_age", updatedJob.RequiredAge);
 
             await connection.OpenAsync();
             await command.ExecuteNonQueryAsync();

@@ -5,10 +5,10 @@ namespace ShiftManager.Services.Interfaces
 {
     public interface IJobRepository
     {
-        Task<Job> GetJobByIdAsync(int? Id);
+        Task<Job> GetJobByIdAsync(int? id);
         Task<IEnumerable<Job>> GetAllJobsAsync();
         Task AddAsync(JobVM job);
         Task UpdateAsync(JobVM updatedJob);
-        Task DeleteAsync(int Id);
+        Task DeleteAsync(int id);
     }
 }

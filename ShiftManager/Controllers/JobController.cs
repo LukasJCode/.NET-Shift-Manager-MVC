@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ShiftManager.Models;
 using ShiftManager.Models.ViewModels;
 using ShiftManager.Services.Interfaces;
 
@@ -8,99 +7,149 @@ namespace ShiftManager.Controllers
     public class JobController : Controller
     {
         private readonly IJobRepository _jobRepository;
+        private readonly ILogger<JobController> _logger;
 
-        public JobController(IJobRepository jobRepository)
+        public JobController(IJobRepository jobRepository, ILogger<JobController> logger)
         {
             _jobRepository = jobRepository;
+            _logger = logger;
         }
         
-        //Display all jobs
         public async Task<IActionResult> Index()
         {
-            var jobs = await _jobRepository.GetAllJobsAsync();
-            return View(jobs);
+            try
+            {
+                var jobs = await _jobRepository.GetAllJobsAsync();
+                return View(jobs);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching jobs.");
+                return View("GenericError");
+            }
         }
 
-        //Filter jobs by search string
+        //Filter jobs by name
         [HttpGet]
-        public async Task<IActionResult> Filter(string searchString)
+        public async Task<IActionResult> Filter(string jobName)
         {
-            var jobs = await _jobRepository.GetAllJobsAsync();
-
-            if (!string.IsNullOrWhiteSpace(searchString))
+            try
             {
+                var jobs = await _jobRepository.GetAllJobsAsync();
 
-                jobs = jobs
-                    .Where(j => j.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                if (!string.IsNullOrWhiteSpace(jobName))
+                {
+
+                    jobs = jobs
+                        .Where(j => j.Name.Contains(jobName, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+
+                return View(nameof(Index), jobs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching jobs.");
+                return View("GenericError");
             }
 
-            return View("Index", jobs);
         }
 
-
-        //Display create job form
+        [HttpGet]
         public IActionResult Create()
         {
             return View();
         }
 
-        //Create a new job
         [HttpPost]
         public async Task<IActionResult> Create(JobVM job)
         {
-            if (!ModelState.IsValid)
+            try
             {
-                return View(job);
+                if (!ModelState.IsValid)
+                {
+                    return View(job);
+                }
+
+                await _jobRepository.AddAsync(job);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding job.");
+                return View("GenericError");
             }
 
-            await _jobRepository.AddAsync(job);
-            return RedirectToAction(nameof(Index));
         }
 
-        //Display edit job form
+        [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
-            var jobDetails = await _jobRepository.GetJobByIdAsync(id);
-
-            if (jobDetails == null)
+            try
             {
-                return View("NotFound");
+                var jobDetails = await _jobRepository.GetJobByIdAsync(id);
+
+                if (jobDetails == null)
+                {
+                    return View("NotFound");
+                }
+
+                var jobVM = new JobVM()
+                {
+                    Name = jobDetails.Name,
+                    RequiredAge = jobDetails.RequiredAge
+                };
+
+                return View(jobVM);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching job.");
+                return View("GenericError");
             }
 
-            var jobVM = new JobVM()
-            {
-                Name = jobDetails.Name,
-                RequiredAge = jobDetails.RequiredAge
-            };
-
-            return View(jobVM);
         }
 
-        //Update a job
         [HttpPost]
         public async Task<IActionResult> Edit(JobVM job)
         {
-            if (!ModelState.IsValid)
+            try
             {
-                return View(job);
+                if (!ModelState.IsValid)
+                {
+                    return View(job);
+                }
+                await _jobRepository.UpdateAsync(job);
+                return RedirectToAction(nameof(Index));
             }
-            await _jobRepository.UpdateAsync(job);
-            return RedirectToAction(nameof(Index));
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating a job.");
+                return View("GenericError");
+            }
+
         }
 
-        //Delete a job
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
-            var job = await _jobRepository.GetJobByIdAsync(id);
-            if (job == null)
+            try
             {
-                return View("NotFound");
+                var job = await _jobRepository.GetJobByIdAsync(id);
+                if (job == null)
+                {
+                    return View("NotFound");
+                }
+
+                await _jobRepository.DeleteAsync(id);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deleting job.");
+                return View("GenericError");
             }
 
-            await _jobRepository.DeleteAsync(id);
-            return RedirectToAction(nameof(Index));
         }
     }
 }

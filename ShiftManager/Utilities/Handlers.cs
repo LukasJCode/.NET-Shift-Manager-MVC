@@ -11,7 +11,6 @@
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
 
-            //extracting connection string from json file
             var connectionString = configuration.GetConnectionString("DbConnection");
 
             //handling possible issues with connection string

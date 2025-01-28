@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ShiftManager.Models;
 using ShiftManager.Models.ViewModels;
 using ShiftManager.Services.Interfaces;
 
@@ -8,102 +7,150 @@ namespace ShiftManager.Controllers
     public class EmployeeController : Controller
     {
         private readonly IEmployeeRepository _employeeRepository;
+        private readonly ILogger<EmployeeController> _logger;
 
-        public EmployeeController(IEmployeeRepository employeeRepository)
+        public EmployeeController(IEmployeeRepository employeeRepository, ILogger<EmployeeController> logger)
         {
             _employeeRepository = employeeRepository;
+            _logger = logger;
         }
 
-        //Display all employees
         public async Task<IActionResult> Index()
         {
-            var employees = await _employeeRepository.GetAllEmployeesAsync();
-            return View(employees);
-        }
-
-        //Filter employees by search string
-        [HttpGet]
-        public async Task<IActionResult> Filter(string searchString)
-        {
-            var employees = await _employeeRepository.GetAllEmployeesAsync();
-
-            if (!string.IsNullOrWhiteSpace(searchString))
+            try
             {
-                employees = employees
-                    .Where(e => e.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                var employees = await _employeeRepository.GetAllEmployeesAsync();
+                return View(employees);
             }
-
-            return View("Index", employees);
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching employees.");
+                return View("GenericError");
+            }
         }
 
-        //Display create employee form
+        //Filter employees by name
+        [HttpGet]
+        public async Task<IActionResult> Filter(string employeeName)
+        {
+            try
+            {
+                var employees = await _employeeRepository.GetAllEmployeesAsync();
+
+                if (!string.IsNullOrWhiteSpace(employeeName))
+                {
+                    employees = employees
+                        .Where(e => e.Name.Contains(employeeName, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+
+                return View(nameof(Index), employees);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching employees.");
+                return View("GenericError");
+            }
+        }
+
+        [HttpGet]
         public IActionResult Create()
         {
             return View();
         }
 
-        //Create new employee
         [HttpPost]
         public async Task<IActionResult> Create(EmployeeVM employee)
         {
-            if (employee.DOB > DateTime.Today)
+            try
             {
-                ModelState.AddModelError("DOB", "Date of Birth cannot be in the future.");
+                if (employee.DOB > DateTime.Today)
+                {
+                    ModelState.AddModelError("DOB", "Date of Birth cannot be in the future.");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return View(employee);
+                }
+
+                await _employeeRepository.AddAsync(employee);
+                return RedirectToAction(nameof(Index));
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding employee.");
+                return View("GenericError");
             }
 
-            if (!ModelState.IsValid)
-            {
-                return View(employee);
-            }
-
-            await _employeeRepository.AddAsync(employee);
-            return RedirectToAction(nameof(Index));
         }
 
-        //Display edit employee form
+        [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
-            var employeeDetails = await _employeeRepository.GetEmployeeByIdAsync(id);
-            if (employeeDetails == null)
+            try
             {
-                return View("NotFound");
+                var employeeDetails = await _employeeRepository.GetEmployeeByIdAsync(id);
+                if (employeeDetails == null)
+                {
+                    return View("NotFound");
+                }
+
+                var employeeVM = new EmployeeVM()
+                {
+                    Name = employeeDetails.Name,
+                    DOB = employeeDetails.DOB,
+                };
+
+                return View(employeeVM);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching employee.");
+                return View("GenericError");
             }
 
-            var employeeVM = new EmployeeVM()
-            {
-                Name = employeeDetails.Name,
-                DOB = employeeDetails.DOB,
-            };
-
-            return View(employeeVM);
         }
 
-        //Update an employee
         [HttpPost]
         public async Task<IActionResult> Edit(EmployeeVM employee)
         {
-            if (!ModelState.IsValid)
+            try
             {
-                return View(employee);
+                if (!ModelState.IsValid)
+                {
+                    return View(employee);
+                }
+                await _employeeRepository.UpdateAsync(employee);
+                return RedirectToAction(nameof(Index));
             }
-            await _employeeRepository.UpdateAsync(employee);
-            return RedirectToAction(nameof(Index));
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating employee.");
+                return View("GenericError");
+            }
+
         }
 
-        //Delete an employee
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
-            var employee = await _employeeRepository.GetEmployeeByIdAsync(id);
-            if (employee == null)
+            try
             {
-                return View("NotFound");
+                var employee = await _employeeRepository.GetEmployeeByIdAsync(id);
+                if (employee == null)
+                {
+                    return View("NotFound");
+                }
+
+                await _employeeRepository.DeleteAsync(id);
+                return RedirectToAction(nameof(Index));
             }
-
-            await _employeeRepository.DeleteAsync(id);
-            return RedirectToAction(nameof(Index));
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deleting employeee.");
+                return View("GenericError");
+            }
         }
-
     }
 }

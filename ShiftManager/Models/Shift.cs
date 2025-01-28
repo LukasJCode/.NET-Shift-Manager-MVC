@@ -13,7 +13,6 @@ namespace ShiftManager.Models
         public List<Job_Shift> Jobs_Shifts { get; set; }
 
         public int EmployeeId { get; set; }
-        [ForeignKey("EmployeeId")]
         public Employee Employee { get; set; }
 
 

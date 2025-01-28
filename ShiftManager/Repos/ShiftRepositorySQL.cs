@@ -17,92 +17,93 @@ namespace ShiftManager.Repos
         public async Task AddAsync(ShiftVM shift)
         {
             const string insertShiftQuery = @"
-                INSERT INTO Shifts (ShiftStart, ShiftEnd, EmployeeId) 
-                OUTPUT INSERTED.Id 
-                VALUES (@ShiftStart, @ShiftEnd, @EmployeeId)";
+                INSERT INTO Shift (shift_start, shift_end, emp_id) 
+                OUTPUT INSERTED.sft_id 
+                VALUES (@shift_start, @shift_end, @emp_id)";
 
-            //const string insertJobShiftQuery = "INSERT INTO Shifts_Jobs (ShiftId, JobId) VALUES (@ShiftId, @JobId)";
-            const string insertJobShiftQuery = "EXEC insertJobShiftQuery @JobId, @ShiftId";
+            const string insertJobShiftQuery = "EXEC insertJobShiftQuery @job_id, @sft_id";
+
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // Add shift
-            int shiftId;
-            using (var command = new SqlCommand(insertShiftQuery, connection))
-            {
-                command.Parameters.AddWithValue("@ShiftStart", shift.ShiftStart);
-                command.Parameters.AddWithValue("@ShiftEnd", shift.ShiftEnd);
-                command.Parameters.AddWithValue("@EmployeeId", shift.EmployeeId);
+            // Using transaction to execute both queries at once
+            using var transaction = await connection.BeginTransactionAsync();
 
-                shiftId = (int)await command.ExecuteScalarAsync();
+            // Insert the Shift and get the generated Shift ID
+            int shiftId;
+            using (var shiftCommand = new SqlCommand(insertShiftQuery, connection, (SqlTransaction)transaction))
+            {
+                shiftCommand.Parameters.AddWithValue("@shift_start", shift.ShiftStart);
+                shiftCommand.Parameters.AddWithValue("@shift_end", shift.ShiftEnd);
+                shiftCommand.Parameters.AddWithValue("@emp_id", shift.EmployeeId);
+
+                shiftId = (int)await shiftCommand.ExecuteScalarAsync();
             }
 
-            // Add associated jobs
+            // Assign jobs for the shift
             foreach (var jobId in shift.JobIds)
             {
-                using var command = new SqlCommand(insertJobShiftQuery, connection);
-                command.Parameters.AddWithValue("@ShiftId", shiftId);
-                command.Parameters.AddWithValue("@JobId", jobId);
-                await command.ExecuteNonQueryAsync();
+                using (var jobShiftCommand = new SqlCommand(insertJobShiftQuery, connection, (SqlTransaction)transaction))
+                {
+                    jobShiftCommand.Parameters.AddWithValue("@job_id", jobId);
+                    jobShiftCommand.Parameters.AddWithValue("@sft_id", shiftId);
+                    await jobShiftCommand.ExecuteNonQueryAsync();
+                }
             }
+
+            await transaction.CommitAsync();
         }
 
         public async Task DeleteAsync(int id)
         {
-            const string deleteShiftQuery = "DELETE FROM Shifts WHERE Id = @Id";
-            const string deleteJobShiftsQuery = "DELETE FROM Shifts_Jobs WHERE ShiftId = @ShiftId";
+            const string deleteShiftQuery = "DELETE FROM Shift WHERE sft_id = @sft_id";
+
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // Delete associated jobs
-            using (var command = new SqlCommand(deleteJobShiftsQuery, connection))
+            using (var deleteShiftCommand = new SqlCommand(deleteShiftQuery, connection))
             {
-                command.Parameters.AddWithValue("@ShiftId", id);
-                await command.ExecuteNonQueryAsync();
-            }
-
-            // Delete shift
-            using (var command = new SqlCommand(deleteShiftQuery, connection))
-            {
-                command.Parameters.AddWithValue("@Id", id);
-                await command.ExecuteNonQueryAsync();
+                deleteShiftCommand.Parameters.AddWithValue("@sft_id", id);
+                await deleteShiftCommand.ExecuteNonQueryAsync();
             }
         }
 
         public async Task<IEnumerable<Shift>> GetAllShiftsAsync()
         {
             const string shiftQuery = @"
-                SELECT s.Id, s.ShiftStart, s.ShiftEnd, s.EmployeeId, e.Name AS EmployeeName
-                FROM Shifts s
-                INNER JOIN Employees e ON s.EmployeeId = e.Id";
+                SELECT s.sft_id, s.shift_start, s.shift_end, s.emp_id, e.name AS employee_name
+                FROM Shift s
+                INNER JOIN Employee e ON s.emp_id = e.emp_id";
 
             const string jobsQuery = @"
-                SELECT sj.ShiftId, sj.JobId, j.Name AS JobName
-                FROM Shifts_Jobs sj
-                INNER JOIN Jobs j ON sj.JobId = j.Id";
+                SELECT sj.sft_id, sj.job_id, j.name AS job_name
+                FROM Shift_Job sj
+                INNER JOIN Job j ON sj.job_id = j.job_id";
 
             var shifts = new List<Shift>();
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
+            using var transaction = await connection.BeginTransactionAsync();
+
             // Fetch shifts with employee data
-            using (var command = new SqlCommand(shiftQuery, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            using (var shiftCommand = new SqlCommand(shiftQuery, connection, (SqlTransaction)transaction))
+            using (var reader = await shiftCommand.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
                 {
                     shifts.Add(new Shift
                     {
-                        Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                        ShiftStart = reader.GetDateTime(reader.GetOrdinal("ShiftStart")),
-                        ShiftEnd = reader.GetDateTime(reader.GetOrdinal("ShiftEnd")),
-                        EmployeeId = reader.GetInt32(reader.GetOrdinal("EmployeeId")),
+                        Id = reader.GetInt32(reader.GetOrdinal("sft_id")),
+                        ShiftStart = reader.GetDateTime(reader.GetOrdinal("shift_start")),
+                        ShiftEnd = reader.GetDateTime(reader.GetOrdinal("shift_end")),
+                        EmployeeId = reader.GetInt32(reader.GetOrdinal("emp_id")),
                         Employee = new Employee
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("EmployeeId")),
-                            Name = reader.GetString(reader.GetOrdinal("EmployeeName"))
+                            Id = reader.GetInt32(reader.GetOrdinal("emp_id")),
+                            Name = reader.GetString(reader.GetOrdinal("employee_name"))
                         },
                         Jobs_Shifts = new List<Job_Shift>() // Initialize Jobs_Shifts list
                     });
@@ -110,14 +111,14 @@ namespace ShiftManager.Repos
             }
 
             // Fetch jobs for each shift
-            using (var command = new SqlCommand(jobsQuery, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            using (var jobShiftCommand = new SqlCommand(jobsQuery, connection, (SqlTransaction)transaction))
+            using (var reader = await jobShiftCommand.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
                 {
-                    var shiftId = reader.GetInt32(reader.GetOrdinal("ShiftId"));
-                    var jobId = reader.GetInt32(reader.GetOrdinal("JobId"));
-                    var jobName = reader.GetString(reader.GetOrdinal("JobName"));
+                    var shiftId = reader.GetInt32(reader.GetOrdinal("sft_id"));
+                    var jobId = reader.GetInt32(reader.GetOrdinal("job_id"));
+                    var jobName = reader.GetString(reader.GetOrdinal("job_name"));
 
                     var shift = shifts.FirstOrDefault(s => s.Id == shiftId);
                     if (shift != null)
@@ -136,40 +137,44 @@ namespace ShiftManager.Repos
                 }
             }
 
+            await transaction.CommitAsync();
+
             return shifts;
         }
 
-        public async Task<Shift> GetShiftByIdAsync(int? Id)
+        public async Task<Shift> GetShiftByIdAsync(int? id)
         {
             const string shiftQuery = @"
-                SELECT Id, ShiftStart, ShiftEnd, EmployeeId 
-                FROM Shifts 
-                WHERE Id = @Id";
+                SELECT sft_id, shift_start, shift_end, emp_id 
+                FROM Shift 
+                WHERE sft_id = @sft_id";
 
             const string jobShiftQuery = @"
-                SELECT js.ShiftId, js.JobId, j.Name, j.RequiredAge 
-                FROM Shifts_Jobs js
-                INNER JOIN Jobs j ON js.JobId = j.Id
-                WHERE js.ShiftId = @ShiftId";
+                SELECT js.sft_id, js.job_id, j.name, j.required_age 
+                FROM Shift_Job js
+                INNER JOIN Job j ON js.job_id = j.job_id
+                WHERE js.sft_id = @sft_id";
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
+            using var transaction = await connection.BeginTransactionAsync();
+
             Shift shift = null;
 
             // Fetch shift details
-            using (var command = new SqlCommand(shiftQuery, connection))
+            using (var shiftCommand = new SqlCommand(shiftQuery, connection, (SqlTransaction)transaction))
             {
-                command.Parameters.AddWithValue("@Id", Id);
-                using var reader = await command.ExecuteReaderAsync();
+                shiftCommand.Parameters.AddWithValue("@sft_id", id);
+                using var reader = await shiftCommand.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
                     shift = new Shift
                     {
-                        Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                        ShiftStart = reader.GetDateTime(reader.GetOrdinal("ShiftStart")),
-                        ShiftEnd = reader.GetDateTime(reader.GetOrdinal("ShiftEnd")),
-                        EmployeeId = reader.GetInt32(reader.GetOrdinal("EmployeeId")),
+                        Id = reader.GetInt32(reader.GetOrdinal("sft_id")),
+                        ShiftStart = reader.GetDateTime(reader.GetOrdinal("shift_start")),
+                        ShiftEnd = reader.GetDateTime(reader.GetOrdinal("shift_end")),
+                        EmployeeId = reader.GetInt32(reader.GetOrdinal("emp_id")),
                         Jobs_Shifts = new List<Job_Shift>() // Initialize list to avoid null reference
                     };
                 }
@@ -178,25 +183,27 @@ namespace ShiftManager.Repos
             if (shift == null) return null;
 
             // Fetch related jobs for the shift
-            using (var command = new SqlCommand(jobShiftQuery, connection))
+            using (var jobShiftCommand = new SqlCommand(jobShiftQuery, connection, (SqlTransaction)transaction))
             {
-                command.Parameters.AddWithValue("@ShiftId", shift.Id);
-                using var reader = await command.ExecuteReaderAsync();
+                jobShiftCommand.Parameters.AddWithValue("@sft_id", shift.Id);
+                using var reader = await jobShiftCommand.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
                     shift.Jobs_Shifts.Add(new Job_Shift
                     {
-                        ShiftId = reader.GetInt32(reader.GetOrdinal("ShiftId")),
-                        JobId = reader.GetInt32(reader.GetOrdinal("JobId")),
+                        ShiftId = reader.GetInt32(reader.GetOrdinal("sft_id")),
+                        JobId = reader.GetInt32(reader.GetOrdinal("job_id")),
                         Job = new Job
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("JobId")),
-                            Name = reader.GetString(reader.GetOrdinal("Name")),
-                            RequiredAge = reader.GetInt32(reader.GetOrdinal("RequiredAge"))
+                            Id = reader.GetInt32(reader.GetOrdinal("job_id")),
+                            Name = reader.GetString(reader.GetOrdinal("name")),
+                            RequiredAge = reader.GetInt32(reader.GetOrdinal("required_age"))
                         }
                     });
                 }
             }
+
+            await transaction.CommitAsync();
 
             return shift;
         }
@@ -204,50 +211,54 @@ namespace ShiftManager.Repos
         public async Task UpdateAsync(ShiftVM updatedShift)
         {
             const string updateShiftQuery = @"
-                UPDATE Shifts 
-                SET ShiftStart = @ShiftStart, 
-                    ShiftEnd = @ShiftEnd, 
-                    EmployeeId = @EmployeeId
-                WHERE Id = @Id";
+                UPDATE Shift 
+                SET shift_start = @shift_start, 
+                    shift_end = @shift_end, 
+                    emp_id = @emp_id
+                WHERE sft_id = @sft_id";
 
             const string deleteJobsQuery = @"
-                DELETE FROM Shifts_Jobs 
-                WHERE ShiftId = @ShiftId";
+                DELETE FROM Shift_Job 
+                WHERE sft_id = @sft_id";
 
-            const string insertJobShiftQuery = "EXEC insertJobShiftQuery @JobId, @ShiftId";
+            const string insertJobShiftQuery = "EXEC insertJobShiftQuery @job_id, @sft_id";
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
+            using var transaction = await connection.BeginTransactionAsync();
+
             // Update the shift details
-            using (var command = new SqlCommand(updateShiftQuery, connection))
+            using (var command = new SqlCommand(updateShiftQuery, connection, (SqlTransaction)transaction))
             {
-                command.Parameters.AddWithValue("@ShiftStart", updatedShift.ShiftStart);
-                command.Parameters.AddWithValue("@ShiftEnd", updatedShift.ShiftEnd);
-                command.Parameters.AddWithValue("@EmployeeId", updatedShift.EmployeeId);
-                command.Parameters.AddWithValue("@Id", updatedShift.Id);
+                command.Parameters.AddWithValue("@shift_start", updatedShift.ShiftStart);
+                command.Parameters.AddWithValue("@shift_end", updatedShift.ShiftEnd);
+                command.Parameters.AddWithValue("@emp_id", updatedShift.EmployeeId);
+                command.Parameters.AddWithValue("@sft_id", updatedShift.Id);
 
                 await command.ExecuteNonQueryAsync();
             }
 
             // Remove existing job-shift mappings
-            using (var command = new SqlCommand(deleteJobsQuery, connection))
+            using (var command = new SqlCommand(deleteJobsQuery, connection, (SqlTransaction)transaction))
             {
-                command.Parameters.AddWithValue("@ShiftId", updatedShift.Id);
+                command.Parameters.AddWithValue("@sft_id", updatedShift.Id);
                 await command.ExecuteNonQueryAsync();
             }
 
             // Add updated job-shift mappings
             foreach (var jobId in updatedShift.JobIds)
             {
-                using (var command = new SqlCommand(insertJobShiftQuery, connection))
+                using (var command = new SqlCommand(insertJobShiftQuery, connection, (SqlTransaction)transaction))
                 {
-                    command.Parameters.AddWithValue("@ShiftId", updatedShift.Id);
-                    command.Parameters.AddWithValue("@JobId", jobId);
+                    command.Parameters.AddWithValue("@sft_id", updatedShift.Id);
+                    command.Parameters.AddWithValue("@job_id", jobId);
 
                     await command.ExecuteNonQueryAsync();
                 }
             }
+
+            await transaction.CommitAsync();
         }
     }
 }
