@@ -3,6 +3,7 @@ using ShiftManager.Models;
 using ShiftManager.Models.ViewModels;
 using ShiftManager.Services.Interfaces;
 using ShiftManager.Utilities;
+using System.Data;
 
 namespace ShiftManager.Repos
 {
@@ -41,12 +42,16 @@ namespace ShiftManager.Repos
             }
 
             // Assign jobs for the shift
-            foreach (var jobId in shift.JobIds)
+            using (var jobShiftCommand = new SqlCommand(insertJobShiftQuery, connection, (SqlTransaction)transaction))
             {
-                using (var jobShiftCommand = new SqlCommand(insertJobShiftQuery, connection, (SqlTransaction)transaction))
+
+                jobShiftCommand.Parameters.Add(new SqlParameter("@job_id", SqlDbType.Int));
+                jobShiftCommand.Parameters.Add(new SqlParameter("@sft_id", SqlDbType.Int));
+
+                foreach (var jobId in shift.JobIds)
                 {
-                    jobShiftCommand.Parameters.AddWithValue("@job_id", jobId);
-                    jobShiftCommand.Parameters.AddWithValue("@sft_id", shiftId);
+                    jobShiftCommand.Parameters["@job_id"].Value = jobId;
+                    jobShiftCommand.Parameters["@sft_id"].Value = shiftId;
                     await jobShiftCommand.ExecuteNonQueryAsync();
                 }
             }
@@ -229,32 +234,35 @@ namespace ShiftManager.Repos
             using var transaction = await connection.BeginTransactionAsync();
 
             // Update the shift details
-            using (var command = new SqlCommand(updateShiftQuery, connection, (SqlTransaction)transaction))
+            using (var updateShiftCommand = new SqlCommand(updateShiftQuery, connection, (SqlTransaction)transaction))
             {
-                command.Parameters.AddWithValue("@shift_start", updatedShift.ShiftStart);
-                command.Parameters.AddWithValue("@shift_end", updatedShift.ShiftEnd);
-                command.Parameters.AddWithValue("@emp_id", updatedShift.EmployeeId);
-                command.Parameters.AddWithValue("@sft_id", updatedShift.Id);
+                updateShiftCommand.Parameters.AddWithValue("@shift_start", updatedShift.ShiftStart);
+                updateShiftCommand.Parameters.AddWithValue("@shift_end", updatedShift.ShiftEnd);
+                updateShiftCommand.Parameters.AddWithValue("@emp_id", updatedShift.EmployeeId);
+                updateShiftCommand.Parameters.AddWithValue("@sft_id", updatedShift.Id);
 
-                await command.ExecuteNonQueryAsync();
+                await updateShiftCommand.ExecuteNonQueryAsync();
             }
 
             // Remove existing job-shift mappings
-            using (var command = new SqlCommand(deleteJobsQuery, connection, (SqlTransaction)transaction))
+            using (var deleteJobsCommand = new SqlCommand(deleteJobsQuery, connection, (SqlTransaction)transaction))
             {
-                command.Parameters.AddWithValue("@sft_id", updatedShift.Id);
-                await command.ExecuteNonQueryAsync();
+                deleteJobsCommand.Parameters.AddWithValue("@sft_id", updatedShift.Id);
+                await deleteJobsCommand.ExecuteNonQueryAsync();
             }
 
             // Add updated job-shift mappings
-            foreach (var jobId in updatedShift.JobIds)
+            using (var updateJobShifts = new SqlCommand(insertJobShiftQuery, connection, (SqlTransaction)transaction))
             {
-                using (var command = new SqlCommand(insertJobShiftQuery, connection, (SqlTransaction)transaction))
-                {
-                    command.Parameters.AddWithValue("@sft_id", updatedShift.Id);
-                    command.Parameters.AddWithValue("@job_id", jobId);
+                updateJobShifts.Parameters.Add(new SqlParameter("@job_id", SqlDbType.Int));
+                updateJobShifts.Parameters.Add(new SqlParameter("@sft_id", SqlDbType.Int));
 
-                    await command.ExecuteNonQueryAsync();
+                foreach (var jobId in updatedShift.JobIds)
+                {
+                    updateJobShifts.Parameters["@sft_id"].Value = updatedShift.Id;
+                    updateJobShifts.Parameters["@job_id"].Value = jobId;
+
+                    await updateJobShifts.ExecuteNonQueryAsync();
                 }
             }
 
