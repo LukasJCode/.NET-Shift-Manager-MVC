@@ -22,7 +22,9 @@ namespace ShiftManager.Repos
                 OUTPUT INSERTED.sft_id 
                 VALUES (@shift_start, @shift_end, @emp_id)";
 
-            const string insertJobShiftQuery = "EXEC insertJobShiftQuery @job_id, @sft_id";
+            const string insertJobShiftQuery = @"
+                INSERT INTO Shift_Job (sft_id, job_id)
+                VALUES (@sft_id, @job_id)";
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
@@ -163,7 +165,7 @@ namespace ShiftManager.Repos
             }
         }
 
-        public async Task<Shift> GetShiftByIdAsync(int? id)
+        public async Task<Shift> GetShiftByIdAsync(int id)
         {
             const string shiftQuery = @"
                 SELECT sft_id, shift_start, shift_end, emp_id 
@@ -203,7 +205,8 @@ namespace ShiftManager.Repos
                     }
                 }
 
-                if (shift == null) return null;
+                if (shift == null)
+                    throw new KeyNotFoundException($"Shift with ID {id} not found.");
 
                 // Fetch related jobs for the shift
                 using (var jobShiftCommand = new SqlCommand(jobShiftQuery, connection, (SqlTransaction)transaction))
@@ -250,7 +253,9 @@ namespace ShiftManager.Repos
                 DELETE FROM Shift_Job 
                 WHERE sft_id = @sft_id";
 
-            const string insertJobShiftQuery = "EXEC insertJobShiftQuery @job_id, @sft_id";
+            const string insertJobShiftQuery = @"
+                INSERT INTO Shift_Job (sft_id, job_id)
+                VALUES (@sft_id, @job_id)";
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();

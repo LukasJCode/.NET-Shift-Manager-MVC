@@ -26,7 +26,7 @@ namespace ShiftManager.Repos
             await command.ExecuteNonQueryAsync();
         }
 
-        public async Task DeleteAsync(int? id)
+        public async Task DeleteAsync(int id)
         {
             if (id == null)
                 throw new ArgumentNullException(nameof(id));
@@ -64,10 +64,10 @@ namespace ShiftManager.Repos
             return employees;
         }
 
-        public async Task<Employee> GetEmployeeByIdAsync(int? id)
+        public async Task<Employee> GetEmployeeByIdAsync(int id)
         {
-            if (id == null)
-                throw new ArgumentNullException(nameof(id));
+            if (id <= 0)
+                throw new ArgumentException("ID must be greater than zero.", nameof(id));
 
             const string query = "SELECT emp_id, name, dob FROM Employee WHERE emp_id = @id";
             using var connection = new SqlConnection(_connectionString);
@@ -87,10 +87,8 @@ namespace ShiftManager.Repos
                     DOB = reader.GetDateTime(reader.GetOrdinal("dob"))
                 };
             }
-            else
-            {
-                return null;
-            }
+
+            throw new KeyNotFoundException($"Employee with ID {id} not found.");
         }
 
         public async Task UpdateAsync(EmployeeVM updatedEmployee)

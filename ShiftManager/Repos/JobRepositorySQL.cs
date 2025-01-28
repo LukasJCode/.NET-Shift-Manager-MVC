@@ -63,10 +63,10 @@ namespace ShiftManager.Repos
             return jobs;
         }
 
-        public async Task<Job> GetJobByIdAsync(int? id)
+        public async Task<Job> GetJobByIdAsync(int id)
         {
-            if (id == null)
-                throw new ArgumentNullException(nameof(id));
+            if (id <= 0)
+                throw new ArgumentException("ID must be greater than zero.", nameof(id));
 
             const string query = "SELECT job_id, name, required_age FROM Job WHERE job_id = @job_id";
             using var connection = new SqlConnection(_connectionString);
@@ -86,10 +86,8 @@ namespace ShiftManager.Repos
                     RequiredAge = reader.GetInt32(reader.GetOrdinal("required_age"))
                 };
             }
-            else
-            {
-                return null;
-            }
+
+            throw new KeyNotFoundException($"Job with ID {id} not found.");
         }
 
         public async Task UpdateAsync(JobVM updatedJob)

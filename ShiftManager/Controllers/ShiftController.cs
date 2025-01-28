@@ -65,7 +65,7 @@ namespace ShiftManager.Controllers
                 //Validating employees age for jobs
                 if (!await ValidateEmployeeAge(shift))
                 {
-                    return await RetryCreateView(shift);
+                    return await RetryView(shift);
                 }
 
                 //Making sure shift doesnt start after it has ended
@@ -76,7 +76,7 @@ namespace ShiftManager.Controllers
 
                 if (!ModelState.IsValid)
                 {
-                    return await RetryCreateView(shift);
+                    return await RetryView(shift);
                 }
 
                 await _shiftRepository.AddAsync(shift);
@@ -120,7 +120,6 @@ namespace ShiftManager.Controllers
             }
         }
 
-        //Update a shift
         [HttpPost]
         public async Task<IActionResult> Edit(ShiftVM shift)
         {
@@ -128,7 +127,7 @@ namespace ShiftManager.Controllers
             {
                 if (!await ValidateEmployeeAge(shift))
                 {
-                    return await RetryCreateView(shift);
+                    return await RetryView(shift);
                 }
 
                 //Making sure shift doesnt start after it has ended
@@ -139,7 +138,7 @@ namespace ShiftManager.Controllers
 
                 if (!ModelState.IsValid)
                 {
-                    return await RetryCreateView(shift);
+                    return await RetryView(shift);
                 }
 
                 await _shiftRepository.UpdateAsync(shift);
@@ -153,7 +152,6 @@ namespace ShiftManager.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        //Delete a shift
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
@@ -214,7 +212,7 @@ namespace ShiftManager.Controllers
         }
 
         // Helper method to retry Create view with dropdowns and errors
-        private async Task<IActionResult> RetryCreateView(ShiftVM shift)
+        private async Task<IActionResult> RetryView(ShiftVM shift)
         {
             await SetDropdownsForView();
             return View(shift);
